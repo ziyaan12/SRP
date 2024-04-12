@@ -1,0 +1,44 @@
+library(Seurat)
+library(ggplot2)
+library(readr)
+
+#loading the relevant data into R
+data <- read_csv("GSE202695_counts_afterQC.csv", col_types = cols())
+
+#create object, ensuring the rows and columns are the right way round
+seurat_obj <- CreateSeuratObject(counts = t(data))
+
+# Normalize the data using log normalization
+seurat_obj <- NormalizeData(seurat_obj, normalization.method = "LogNormalize", scale.factor = 10000)
+
+# Identify highly variable features
+seurat_obj <- FindVariableFeatures(seurat_obj, selection.method = "vst", nfeatures = 2000)
+
+# Scale the data to perform linear transformations
+seurat_obj <- ScaleData(seurat_obj)
+
+# Run PCA on the scaled data
+seurat_obj <- RunPCA(seurat_obj, features = VariableFeatures(object = seurat_obj))
+
+# Perform t-SNE
+seurat_obj <- RunTSNE(seurat_obj, dims = 1:20)
+
+# Create a new metadata column to classify cells as 'Tumor' or 'Metastases' based on the cell names
+cell_names <- colnames(seurat_obj)
+seurat_obj$Origin <- ifelse(grepl("tumor", cell_names, ignore.case = TRUE), "Tumor",
+                            ifelse(grepl("metastases", cell_names, ignore.case = TRUE), "Metastases", "Other"))
+
+# Generate a t-SNE plot coloring cells by their classification
+tsne_plot <- DimPlot(seurat_obj, reduction = "tsne", group.by = "Origin", label = TRUE) +
+  theme(legend.title = element_blank(), plot.title = element_blank()) +
+  scale_color_discrete(labels = c("Tumor", "Metastases"))
+
+# Save the t-SNE plot
+ggsave("tSNE_by_Origin.png", tsne_plot, width = 8, height = 6, dpi = 300)
+
+# Print the first few rows of the Seurat object to check everything is in order
+print(head(rownames(seurat_obj)))  # Should show gene names
+print(head(colnames(seurat_obj)))  # Should show cell identifiers
+
+# Output the table of 'Origin' to verify classifications
+table(seurat_obj$Origin)
