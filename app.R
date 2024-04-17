@@ -13,7 +13,7 @@ ui <- fluidPage(
              # Summary of analyses (mandatory)
              mainPanel(
                h3("Conducting a pipeline analysis "),
-               uiOutput("summary1")  # Change from htmlOutput to uiOutput
+               uiOutput("summary1"),
              ),
              
              # Gene query interface (optional)
@@ -36,9 +36,14 @@ ui <- fluidPage(
              # Add UI elements for the second page
              mainPanel(
                h3("Conducting an alternative pipeline analysis using Seurat "),
-               tags$img(src = "Image2.png", height = "200px", width = "300px"),
-               uiOutput("summary2")  # Change from htmlOutput to uiOutput
-             ),
+               uiOutput("summary2"),
+               h3("Figures"),
+               imageOutput("data_image1"),
+               imageOutput("data_image2"),
+               imageOutput("data_image3"),
+               imageOutput("data_image4"),
+               imageOutput("data_image5")
+               ),
              
              sidebarPanel(
                h3("Gene Query"),
@@ -90,6 +95,46 @@ Finally, data retrieval from external databases, such as KMplotter, enabled addi
     paragraphs <- strsplit(text, "\n")[[1]]  # Split text into paragraphs
     HTML(paste("<p>", paragraphs, "</p>", collapse = "<br>"))
   })
+  
+  output$data_image1 <- renderImage({
+    
+    list(src = "/home/ssgk1/my_apps/www/image1.png",
+         width = "100%",
+         height = 330)
+    
+  }, deleteFile = F)
+  
+  output$data_image2 <- renderImage({
+    
+    list(src = "/home/ssgk1/my_apps/www/image2.png",
+         width = "100%",
+         height = 330)
+    
+  }, deleteFile = F)
+  
+  output$data_image3 <- renderImage({
+    
+    list(src = "/home/ssgk1/my_apps/www/image3.png",
+         width = "100%",
+         height = 330)
+    
+  }, deleteFile = F)
+  
+  output$data_image4 <- renderImage({
+    
+    list(src = "/home/ssgk1/my_apps/www/image4.png",
+         width = "100%",
+         height = 330)
+    
+  }, deleteFile = F)
+  
+  output$data_image5 <- renderImage({
+    
+    list(src = "/home/ssgk1/my_apps/www/image5.png",
+         width = "100%",
+         height = 330)
+    
+  }, deleteFile = F)
   
   # Gene query functionality for tab 1 (Pipeline Analysis)
   output$gene_info1 <- renderPrint({
