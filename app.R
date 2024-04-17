@@ -4,66 +4,156 @@ library(ggplot2)
 
 # UI
 ui <- fluidPage(
-  titlePanel("Gene Analysis Dashboard"),
+  titlePanel(HTML("<h2 style='text-align: center;'>Gene Analysis Dashboard</h2>")),
   
-  # Summary of analyses (mandatory)
-  mainPanel(
-    h3("Summary of Analyses"),
-    textOutput("summary")
-  ),
-  
-  # Gene query interface (optional)
-  sidebarPanel(
-    h3("Gene Query"),
-    textInput("gene_query", label = "Enter Gene Name"),
-    verbatimTextOutput("gene_info"),
+  # Create tabs
+  tabsetPanel(
+    # First tab
+    tabPanel("Pipeline Analysis", 
+             # Summary of analyses (mandatory)
+             mainPanel(
+               h3("Conducting a pipeline analysis "),
+               uiOutput("summary1")  # Change from htmlOutput to uiOutput
+             ),
+             
+             # Gene query interface (optional)
+             sidebarPanel(
+               h3("Gene Query"),
+               textInput("gene_query1", label = "Enter Gene ID"),  # Change the label to "Enter Gene ID"
+               verbatimTextOutput("gene_info1"),
+               
+               # Select plot type (optional)
+               selectInput("plot_type1", label = "Select Plot Type",
+                           choices = c("Scatter Plot", "Bar Plot", "Heatmap"))
+             ),
+             
+             # Plot output
+             plotOutput("plot1")
+    ),
     
-    # Select plot type (optional)
-    selectInput("plot_type", label = "Select Plot Type",
-                choices = c("Scatter Plot", "Bar Plot"))
-  ),
-  
-  # Plot output
-  plotOutput("plot")
+    # Second tab
+    tabPanel("Alternative Pipeline Analysis", 
+             # Add UI elements for the second page
+             mainPanel(
+               h3("Conducting an alternative pipeline analysis using Seurat "),
+               tags$img(src = "Image2.png", height = "200px", width = "300px"),
+               uiOutput("summary2")  # Change from htmlOutput to uiOutput
+             ),
+             
+             sidebarPanel(
+               h3("Gene Query"),
+               textInput("gene_query2", label = "Enter Gene ID"),  # Change the label to "Enter Gene ID"
+               verbatimTextOutput("gene_info2"),
+               selectInput("plot_type2", label = "Select Plot Type",
+                           choices = c("Scatter Plot", "Bar Plot", "Heatmap"))
+             ),
+             plotOutput("plot2")
+    )
+  )
 )
 
 # Server
 server <- function(input, output) {
   
-  # Load data
-  data <- read.csv("gene_data.csv")
+  # Load data for Pipeline Analysis tab
+  data_pipeline <- read.csv("gene_data.csv")
   
-  # Summary of analyses (dummy output for demonstration)
-  output$summary <- renderText({
-    "This is a summary of analyses."
+  # Summary of analyses for Pipeline Analysis tab
+  output$summary1 <- renderUI({  # Change from renderText to renderUI
+    text <- " Re-analyzing the RNA sequencing data, as outlined by Hamelin et al., involved a meticulous series of steps aimed at processing, analyzing, and interpreting the dataset. Initially, data retrieval and preparation were prioritized, with RNA sequencing data obtained from the GEO and SRA databases. This involved writing Bash scripts to download and convert files to the necessary fastq format, ensuring compatibility for subsequent analysis. Additionally, the configuration of the SRA toolkit and monitoring of download progress were essential tasks during this phase.
+
+Following data retrieval, read alignment using STAR was conducted to map sequencing reads to the human genome. This process necessitated the creation of directories for organization and structure, as well as indexing of the reference genome and gene annotation files. To expedite the mapping process and manage computational resources effectively, workload splitting was implemented through the submission of multiple job scripts.
+
+Once alignment was completed, sorting and indexing of BAM files were performed using Samtools. Monitoring job progress and ensuring error-free execution were critical aspects of this phase. Subsequently, coverage tracks were generated using R, facilitating visualization and further analysis of read coverage across the genome. Feature counting using Rsubread complemented this step, providing insights into the number of reads overlapping with gene exons.
+
+Addressing potential artifacts such as doublets and multiplets was crucial for data quality assurance. Microscopy observation and fastq_screen assessment were employed to identify and eliminate wells with multiple cells or debris. Libraries failing to meet predefined criteria based on human-to-mouse ratios and read counts were excluded from further analysis.
+
+Inference and correction of cell cycle signals were then performed to account for cell cycle-related variability in gene expression data. Utilizing known cell cycle-regulated genes, cell cycle stages were inferred and cells were assigned accordingly. Additionally, modeling and regression techniques were applied to remove cell cycle and library complexity effects from the gene expression data.
+
+Dimensionality reduction, clustering, and differential expression analyses provided deeper insights into the dataset. Techniques such as PCA, tSNE, and UMAP were employed for dimensionality reduction, followed by Louvain clustering for identifying distinct cell populations. Pairwise t-tests and gene set enrichment analysis further elucidated differential gene expression patterns and enriched biological pathways.
+
+Finally, data retrieval from external databases, such as KMplotter, enabled additional analyses such as Kaplan-Meier survival analysis. Further refinement involved isolating upregulated transcripts and conducting additional analyses, such as recurrence-free survival (RFS) analysis on specific patient cohorts. These comprehensive analytical steps collectively contributed to the thorough re-analysis of the RNA sequencing data in alignment with the methodology outlined by Hamelin et al.
+"
+    paragraphs <- strsplit(text, "\n\n")[[1]]  # Split text into paragraphs
+    HTML(paste("<p>", paragraphs, "</p>", collapse = "<br>"))
   })
   
-  # Gene query functionality (optional)
-  output$gene_info <- renderPrint({
-    gene <- input$gene_query
-    if (!is.null(gene)) {
-      gene_info <- data[data$Gene == gene, ]
+  # Load data for Alternative Pipeline Analysis tab
+  data_alternative <- read.csv("metadata.csv")
+  
+  # Summary of analyses for Alternative Pipeline Analysis tab
+  output$summary2 <- renderUI({  
+    text <- "The re-analysis of the Hamelin et al. paper was conducted using an alternative pipeline for several reasons. This approach aimed to enhance the credibility and reliability of the research by verifying the findings of the paper and ensuring the results are not dependent on specific analytical approaches or methodologies. An alternative pipeline can identify potential biases or errors present in the original analysis. By using different techniques or algorithms, researchers can identify and improve potential sources of bias or inaccuracies in the data or analysis methods. In addition, it allows researchers to explore alternative explanations or interpretations of the data. This can lead to new insights or perspectives based on the study. As scientific methods and analytical techniques evolve over time. Re-analysis with newer, efficient or more advanced pipelines may leverage improvements in methodology which were not available in the original study. Moreover, it provides a chance for cross-validation of the results, enhancing confidence in the study's validity.
+  The alternative pipeline analysis was executed using Seurat, following the methodology outlined by Wang Rui et al. This selection was made due to the comprehensive assessment of cancer via scRNAseq analysis presented in their study. This aligned closely with the methodology employed using scRNAseq in the original research conducted by Hamelin et al. Seurat is a powerful tool for scRNA-seq analysis, offering numerous advantages in terms of functionality and reliability.
+  The pipeline analysis started with downloading the relevant data from the GEO using the accession code and the raw data was downloaded. This process was similar to the original study. See figure 1. Following this, the relevant R packages, including Seurat and ggplot, were installed and incorporated onto the R session. Subsequently, the CSV dataset was imported for further analysis. Various analytical procedures were then executed, including preprocessing, normalization, variable feature selection, scaling, PCA, clustering and UMAP visualisation."
+    
+    paragraphs <- strsplit(text, "\n")[[1]]  # Split text into paragraphs
+    HTML(paste("<p>", paragraphs, "</p>", collapse = "<br>"))
+  })
+  
+  # Gene query functionality for tab 1 (Pipeline Analysis)
+  output$gene_info1 <- renderPrint({
+    gene_id <- input$gene_query1  # Retrieve gene ID from input
+    if (!is.null(gene_id)) {
+      gene_info <- data_pipeline[data_pipeline$Gene == gene_id, ]  # Filter data based on Gene column
       if (nrow(gene_info) > 0) {
         gene_info
       } else {
-        "Gene not found"
+        "Gene ID not found"
+      }
+    }
+  })
+  
+  output$gene_info2 <- renderPrint({
+    gene_id <- input$gene_query2  # Retrieve gene ID from input
+    if (!is.null(gene_id)) {
+      gene_info <- data_alternative[data_alternative$ID == gene_id, ]  # Filter data based on ID
+      if (nrow(gene_info) > 0) {
+        gene_info
+      } else {
+        "Gene ID not found"
       }
     }
   })
   
   # Render different types of plots based on user input
-  output$plot <- renderPlot({
+  output$plot1 <- renderPlot({
     # Check the selected plot type
-    if (input$plot_type == "Scatter Plot") {
+    if (input$plot_type1 == "Scatter Plot") {
       # Scatter plot
-      ggplot(data, aes(x = X, y = Y, color = Cell_Type)) +
+      ggplot(data_pipeline, aes_string(x = "X", y = "Y", color = "Cell_Type")) +
         geom_point() +
-        labs(title = "Scatter Plot of Cell Type Clusters")
-    } else if (input$plot_type == "Bar Plot") {
+        labs(title = "Scatter Plot of Expression by Gene and Cell Type")
+    } else if (input$plot_type1 == "Bar Plot") {
       # Bar plot
-      ggplot(data, aes(x = Gene, y = Expression, fill = Cell_Type)) +
+      ggplot(data_pipeline, aes_string(x = "Gene", y = "Expression", fill = "Cell_Type")) +
         geom_bar(stat = "identity") +
-        labs(title = "Bar Plot of Gene Expression by Cell Type")
+        labs(title = "Bar Plot of Expression by Gene and Cell Type")
+    } else if (input$plot_type1 == "Heatmap") {
+      # Heatmap
+      ggplot(data_pipeline, aes_string(x = "Gene", y = "Cell_Type", fill = "Expression")) +
+        geom_tile() +
+        labs(title = "Heatmap of Expression by Gene and Cell Type")
+    }
+  })
+  
+  output$plot2 <- renderPlot({
+    # Check the selected plot type
+    if (input$plot_type2 == "Scatter Plot") {
+      # Scatter plot
+      ggplot(data_alternative, aes(x = nCount_RNA, y = nFeature_RNA, color = clusters)) +
+        geom_point() +
+        labs(title = "Scatter Plot of Feature Count by Cell Type")
+    } else if (input$plot_type2 == "Bar Plot") {
+      # Bar plot
+      ggplot(data_alternative, aes(x = Origin, y = clusters, fill = nCount_RNA)) +
+        geom_bar(stat = "identity") +
+        labs(title = "Bar Plot of RNA Count by Origin and Cell Type")
+    } else if (input$plot_type2 == "Heatmap") {
+      # Heatmap
+      ggplot(data_alternative, aes(x = Origin, y = clusters, fill = nCount_RNA)) +
+        geom_tile() +
+        labs(title = "Heatmap of RNA Count by Origin and Cell Type")
     }
   })
 }
