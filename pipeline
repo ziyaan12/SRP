@@ -23,22 +23,73 @@ seurat_obj <- RunPCA(seurat_obj, features = VariableFeatures(object = seurat_obj
 #perform t-SNE
 seurat_obj <- RunTSNE(seurat_obj, dims = 1:20)
 
+#print the first few rows of the Seurat object to check everything is in order
+print(head(rownames(seurat_obj)))  
+print(head(colnames(seurat_obj))) 
+
 #create a new metadata column to classify cells as 'Tumor' or 'Metastases' based on the cell names
 cell_names <- colnames(seurat_obj)
 seurat_obj$Origin <- ifelse(grepl("tumor", cell_names, ignore.case = TRUE), "Tumor",
-                            ifelse(grepl("metastases", cell_names, ignore.case = TRUE), "Metastases", "Other"))
-
-#generate a t-SNE plot coloring cells by their classification
-tsne_plot <- DimPlot(seurat_obj, reduction = "tsne", group.by = "Origin", label = TRUE) +
-  theme(legend.title = element_blank(), plot.title = element_blank()) +
-  scale_color_discrete(labels = c("Tumor", "Metastases"))
-
-#save the t-SNE plot
-ggsave("tSNE_by_Origin.png", tsne_plot, width = 8, height = 6, dpi = 300)
-
-#print the first few rows of the Seurat object to check everything is in order
-print(head(rownames(seurat_obj)))  #should show gene names
-print(head(colnames(seurat_obj)))  #should show cell identifiers
+                            ifelse(grepl("metastases", cell_names, ignore.case = TRUE), "Metastases")
 
 #output the table of 'Origin' to verify classifications
 table(seurat_obj$Origin)
+
+#generate and save t-SNE plot coloring cells by their origin
+tSNE_by_Origin_plot <- DimPlot(seurat_obj, reduction = "tsne", group.by = "Origin") + 
+  ggtitle("t-SNE by Origin") +
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") +
+  theme_minimal()
+  scale_color_discrete(labels = c("Tumor", "Metastases"))
+ggsave("tSNE_by_Origin.png", plot = tSNE_by_Origin_plot, width = 10, height = 8, dpi = 300)
+
+#generate and save UMAP plot colouring cells by their origin
+UMAP_by_Cell_Type_plot <- DimPlot(seurat_obj, reduction = "umap", group.by = "cell_type") + 
+  ggtitle("UMAP by Cell Type") +
+  xlab("UMAP 1") + 
+  ylab("UMAP 2") +
+  theme_minimal()
+ggsave("UMAP_by_Cell_Type.png", plot = UMAP_by_Cell_Type_plot, width = 10, height = 8, dpi = 300)
+
+#generate and save t-SNE plot colouring cells by their clusters
+tSNE_by_Clusters_plot <- DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters") + 
+  ggtitle("t-SNE by Clusters") +
+  xlab("t-SNE 1") + 
+  ylab("t-SNE 2") +
+  theme_minimal()
+ggsave("tSNE_by_Clusters.png", plot = tSNE_by_Clusters_plot, width = 10, height = 8, dpi = 300)
+
+#generate and save UMAP plot colouring cells by their cluster
+UMAP_by_Clusters_plot <- DimPlot(seurat_obj, reduction = "umap", group.by = "seurat_clusters") + 
+  ggtitle("UMAP by Clusters") +
+  xlab("UMAP 1") + 
+  ylab("UMAP 2") +
+  theme_minimal()
+ggsave("UMAP_by_Clusters.png", plot = UMAP_by_Clusters_plot, width = 10, height = 8, dpi = 300)
+
+#generate and save the average log2FC plot
+avg_log2FC_plot <- ggplot(top_genes, aes(x = reorder(gene, avg_log2FC), y = avg_log2FC)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("avg_log2FC") +
+  ylab("gene") +
+  theme_minimal()
+ggsave("averagelog2FC.png", plot = avg_log2FC_plot, width = 10, height = 8, dpi = 300)
+
+#generate and save volcano plot
+Volcano_Plot <- ggplot(degs, aes(x = logFC, y = -log10(pvalue))) +
+  geom_point(aes(color = significant)) +
+  theme_minimal()
+ggsave("Volcano_Plot.png", plot = Volcano_Plot, width = 10, height = 8, dpi = 300)
+
+#generate and save elbow plot
+ElbowPlot(seurat_obj) +
+  ggtitle("PCA Elbow Plot")
+ggsave("PCA_Elbow_Plot.png", width = 10, height = 8, dpi = 300)
+
+#generate and save the QC control metrics plot
+VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) +
+  ggtitle("QC Metrics")
+ggsave("QC_Metrics.png", width = 12, height = 6, dpi = 300)
+
