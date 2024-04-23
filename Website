@@ -122,49 +122,49 @@ Finally, data retrieval from external databases, such as KMplotter, enabled addi
   output$data_image1 <- renderImage({
     list(src = "/home/ssgk1/my_apps/www/image1.png",
          width = "100%",
-         height = 330)
+         height = 400)
   }, deleteFile = F)
   
   output$data_image2 <- renderImage({
     list(src = "/home/ssgk1/my_apps/www/image2.png",
          width = "100%",
-         height = 330)
+         height = 400)
   }, deleteFile = F)
   
   output$data_image3 <- renderImage({
     list(src = "/home/ssgk1/my_apps/www/image3.png",
          width = "100%",
-         height = 330)
+         height = 400)
   }, deleteFile = F)
   
   output$data_image4 <- renderImage({
     list(src = "/home/ssgk1/my_apps/www/image4.png",
          width = "100%",
-         height = 330)
+         height = 400)
   }, deleteFile = F)
   
   output$data_image5 <- renderImage({
     list(src = "/home/ssgk1/my_apps/www/image5.png",
          width = "100%",
-         height = 330)
+         height = 400)
   }, deleteFile = F)
   
   output$data_image6 <- renderImage({
     list(src = "/home/ssgk1/my_apps/www/image6.png",
          width = "100%",
-         height = 330)
+         height = 400)
   }, deleteFile = F)
   
   output$data_image7 <- renderImage({
     list(src = "/home/ssgk1/my_apps/www/image7.png",
          width = "100%",
-         height = 330)
+         height = 400)
   }, deleteFile = F)
   
   output$data_image8 <- renderImage({
     list(src = "/home/ssgk1/my_apps/www/image8.png",
          width = "100%",
-         height = 330)
+         height = 400)
   }, deleteFile = F)
   
   # Gene query functionality for tab1 (Pipeline Analysis)
