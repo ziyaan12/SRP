@@ -1,7 +1,6 @@
 # Importing the libraries needed for this script.
 library(shiny)
 library(ggplot2)
-library(umap)
 
 # Creating the user interface (UI).
 ui <- fluidPage(
@@ -35,7 +34,7 @@ ui <- fluidPage(
                h3("Gene Query"),
                textInput("gene_query1", label = "Enter Gene ID"),  
                verbatimTextOutput("gene_info1"),
-               selectInput("plot_type1", label = "Select Plot Type",
+               selectInput("plot_type1", label = "Additional graphs",
                            choices = c("Scatter Plot", "Bar Plot")),
                plotOutput("plot1")  
              )
@@ -74,11 +73,11 @@ ui <- fluidPage(
              # Making the gene query interface for tab2 (Alternative pipeline analysis)
              sidebarPanel(
                h3("Gene Query"),
-               textInput("gene_query2", label = "Enter Gene ID"),  # Change the label to "Enter Gene ID"
+               textInput("gene_query2", label = "Enter Gene ID (Eg s0867_mouse6_HBRX2353_Tumor_1cells)"),  # Change the label to "Enter Gene ID"
                verbatimTextOutput("gene_info2"),
-               selectInput("plot_type2", label = "Select Plot Type",
+               selectInput("plot_type2", label = "Additional graphs",
                            choices = c("Scatter Plot", "Bar Plot")),
-               plotOutput("plot2")  # Moved plotOutput here
+               plotOutput("plot2")  
              )
     )
   )
