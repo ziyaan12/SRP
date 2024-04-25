@@ -1,6 +1,7 @@
 library(Seurat)
 library(ggplot2)
 library(readr)
+library(plotly)
 
 #loading the relevant data into R
 data <- read_csv("GSE202695_counts_afterQC.csv", col_types = cols())
