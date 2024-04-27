@@ -1,96 +1,216 @@
+#load the libraries
 library(Seurat)
 library(ggplot2)
 library(readr)
+library(dplyr)
 library(plotly)
+library(patchwork)
+library(fgsea)
+library(msigdbr)
+library(pheatmap)
+library(ggtree)
+library(clusterProfiler)
+library(enrichplot)
 
-#loading the relevant data into R
-data <- read_csv("GSE202695_counts_afterQC.csv", col_types = cols())
+# Specify the file path
+file_path <- "/home/zo24/SteeredResearchProject/groupproject/pipeline/4/re_analysis_counts_afterQC.csv"
 
-#create object, ensuring the rows and columns are the right way round
-seurat_obj <- CreateSeuratObject(counts = t(data))
+# Read the reanalysis data after QC CSV file using read.csv
+data <- read.csv(file_path, row.names = 1)  
 
-#normalize the data using log normalization
-seurat_obj <- NormalizeData(seurat_obj, normalization.method = "LogNormalize", scale.factor = 10000)
+# Convert the counts to a matrix
+data_matrix <- as.matrix(data)
 
-#identify highly variable features
-seurat_obj <- FindVariableFeatures(seurat_obj, selection.method = "vst", nfeatures = 2000)
+# Create the Seurat object from counts matrix
+seurat_obj <- CreateSeuratObject(counts = data_matrix, project = "pipeline_analysis")
 
-#scale the data to perform linear transformations
+###pre-processing workfolw
+#quality control and selecting cells for further analysis
+#data normalisation
+#identification of highly variable features )or feature selection)
+
+###QC metrics (nFeature_RNA, nCount_RNA and percent.mt)
+#low quality cells or empty droplets often have very few genes (low nFeature_RNA and nCount_RNA)
+#cell doublets or multiplets have high nFeature_RNA and nCount_RNA
+#dying/low-quality cells often have high mitochondrial genes percentage (percent.mt)
+
+# Calculate and store the mitochondrial percentage in the metadata
+seurat_obj <- PercentageFeatureSet(seurat_obj, pattern = "^MT", col.name = "percent.mt")
+
+# violin plot to help choose the appropriate filtering parameters
+VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+# Create a scatter plot of nCount_RNA against percent.mt
+FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "percent.mt")+
+  theme(legend.position = "none")
+# Create a scatter plot of nCount_RNA against nFeature_RNA
+FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")+
+  theme(legend.position = "none")
+
+#filter the cells based on the parameters selected from the violin plot
+seurat_obj <- subset(seurat_obj, subset = nFeature_RNA > 2500 & nFeature_RNA < 10000 & nCount_RNA < 3e+06 & percent.mt < 15)
+
+#violin plot after filtering to review the results
+VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+# Create a scatter plot of nCount_RNA against percent.mt AFTER FILTERING
+FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "percent.mt")+
+  theme(legend.position = "none")
+# Create a scatter plot of nCount_RNA against nFeature_RNA AFTER FILTERING
+FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")+
+  theme(legend.position = "none")
+
+# Normalize the data using log nomalisation
+seurat_obj <- NormalizeData(seurat_obj,
+                            normalization.method = "LogNormalize", scale.factor = 10000)
+
+# identification of highly variable features
+seurat_obj <- FindVariableFeatures(seurat_obj, 
+                                   selection.method = "vst", nfeatures = 2000)
+
+#variable feature plot to identift number of variable features
+VariableFeaturePlot(seurat_obj)
+
+# Perform scaling
 seurat_obj <- ScaleData(seurat_obj)
+all.genes <- rownames(seurat_obj)
+seurat_obj <- ScaleData(seurat_obj, features = all.genes)
 
-#run PCA on the scaled data
-seurat_obj <- RunPCA(seurat_obj, features = VariableFeatures(object = seurat_obj))
 
-#perform t-SNE
-seurat_obj <- RunTSNE(seurat_obj, dims = 1:20)
+# Perform dimensionality reduction (PCA on the data)
+seurat_obj <- RunPCA(seurat_obj)
+seurat_obj <- RunPCA(seurat_obj, npcs = 50, features = VariableFeatures(object = seurat_obj), ndims.print = 1:5, nfeatures.print = 30)
 
-#print the first few rows of the Seurat object to check everything is in order
-print(head(rownames(seurat_obj)))  
-print(head(colnames(seurat_obj))) 
+#visualise PCA results
+DimPlot(seurat_obj, reduction = "pca", dims = c(1,2))
 
-#create a new metadata column to classify cells as 'Tumor' or 'Metastases' based on the cell names
-cell_names <- colnames(seurat_obj)
-seurat_obj$Origin <- ifelse(grepl("tumor", cell_names, ignore.case = TRUE), "Tumor",
-                            ifelse(grepl("metastases", cell_names, ignore.case = TRUE), "Metastases")
+#elbow plot
+ElbowPlot(seurat_obj)
+ElbowPlot(seurat_obj, ndims = 50, reduction = "pca")
 
-#output the table of 'Origin' to verify classifications
-table(seurat_obj$Origin)
+# Cluster the cells
+seurat_obj <- FindNeighbors(seurat_obj)#, dims = 1:20)
+seurat_obj <- FindClusters(seurat_obj)#, resolution = 0.1)
+seurat_obj <- FindClusters(seurat_obj, resolution = 0.3)
+seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
 
-#generate and save t-SNE plot coloring cells by their origin
-tSNE_by_Origin_plot <- DimPlot(seurat_obj, reduction = "tsne", group.by = "Origin") + 
-  ggtitle("t-SNE by Origin") +
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") +
+#run UMAP and t-SNE
+seurat_obj <- RunUMAP(seurat_obj, dims = 1:20)
+DimPlot(seurat_obj, reduction = "umap", label = TRUE, repel = TRUE)
+seurat_obj <- RunTSNE(object = seurat_obj)
+DimPlot(object = seurat_obj, reduction = "tsne")
+
+# Visualize the clusters
+DimPlot(seurat_obj)
+
+#create new metadata category to identify cells as either Tumor or Metastases
+seurat_obj$CellOrigin <- ifelse(grepl("Tumor", colnames(seurat_obj)), "Tumor", "Metastases")
+table(seurat_obj$CellOrigin)
+
+#visualise UMAP and t-SNE based on Cell Origin
+DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrigin", label = TRUE, repel = TRUE)
+DimPlot(seurat_obj, reduction = "tsne", group.by = "CellOrigin")
+
+#combine the generated visualisations to make them easier to compare
+# t-SNE plots
+tsne_clusters <- DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters") + 
+  ggtitle("t-SNE by Clusters")
+
+tsne_cell_origin <- DimPlot(seurat_obj, reduction = "tsne", group.by = "CellOrigin") + 
+  ggtitle("t-SNE by Cell Origin")
+
+# Combine using patchwork
+combined_tsne <- tsne_clusters + tsne_cell_origin
+combined_tsne
+
+# UMAP plots
+umap_clusters <- DimPlot(seurat_obj, reduction = "umap", group.by = "seurat_clusters", label = TRUE, repel = TRUE) + 
+  ggtitle("UMAP by Clusters")
+
+umap_cell_origin <- DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrigin", label = TRUE, repel = TRUE) + 
+  ggtitle("UMAP by Cell Origin")
+
+# Combine using patchwork
+combined_umap <- umap_clusters + umap_cell_origin
+combined_umap
+
+
+##############
+#find top markers (most differentiall expressed genes)
+markers <- FindAllMarkers(object = seurat_obj, only.pos = FALSE,  min.pct = 0.1,)
+
+#extract top marker genes and trim dataset down so the heatmap is easier to read
+#top_genes <- markers$gene
+#top_markers <- markers %>% 
+#  group_by(cluster) %>%
+#  top_n(n = 15, wt = avg_log2FC)
+#unique_genes <- unique(top_markers$gene)
+#DoHeatmap(seurat_obj, features = unique_genes)
+
+###Gene Set Enrichment Analysis
+
+# Rank genes by logFC for GSEA
+gene_list <- markers$avg_log2FC
+names(gene_list) <- markers$gene
+
+
+# Sort the gene list from most upregulated to most downregulated
+gene_list <- sort(gene_list, decreasing = TRUE)
+
+# create data sets with the proliferation and EMT genes from the original study
+proliferation_genes <- c("MKI67", "MCM3", "PCNA")
+emt_genes <- c("KRT8", "ITGAV", "SERPINE1", "MET", "KRT18", "TGFBR1", "DSG2", "SPARC", "ITGB1", "ZEB1", "EMP3", "TNC", "EPCAM", "ST14", "KRT5", "ESRP1", "KRT14", "MMP2", "SNAI1", "COL1A1", "MUC1", "MYC", "CCN2", "FN1", "SOX9", "VIM", "KRT19")
+
+# Combine into a list for fgsea
+gene_sets <- list(EMT = emt_genes, Proliferation = proliferation_genes)
+
+#remove any duplicates
+gene_list <- gene_list[!duplicated(names(gene_list))]
+
+# Perform fgsea
+fgsea_results <- fgseaMultilevel(pathways = gene_sets, stats = gene_list, minSize = 5, maxSize = 500)
+#ties in the results so just running some troubleshooting to make sure its okay to proceed
+length(unique(gene_list)) / length(gene_list)
+table(duplicated(gene_list))
+
+#view GSEA results
+head(fgsea_results[order(fgsea_results$padj), ])
+
+# filter top 5% of upregulated and downregualted genes
+logfc_threshold_up <- quantile(markers$avg_log2FC, 0.95)  # Top 5%
+logfc_threshold_down <- quantile(markers$avg_log2FC, 0.05)  # Bottom 5%
+
+#new dataset containing most upregulated and downregulated genes
+new_markers <- markers[markers$avg_log2FC >= logfc_threshold_up | markers$avg_log2FC <= logfc_threshold_down, ]
+head(new_markers)
+
+#create new dataset for GSEA
+new_gene_list <- new_markers$avg_log2FC
+names(new_gene_list) <- rownames(new_markers)
+
+# Sort the gene list for GSEA
+new_gene_list <- sort(new_gene_list, decreasing = TRUE)
+
+# Plot histogram of logFC values
+hist(markers$avg_log2FC, breaks = 50, main = "Distribution of logFC Values")
+
+gsea_plot <- ggplot(fgsea_results, aes(x = reorder(pathway, NES), y = NES, fill = padj < 0.05)) +
+  geom_col() +
+  coord_flip() +  # Flip the coordinates for better readability of pathway names
+  labs(x = "Pathway", y = "Normalized Enrichment Score (NES)", title = "GSEA Results") +
+  scale_fill_manual(values = c("TRUE" = "red", "FALSE" = "green"), name = "Significant") +
   theme_minimal()
-  scale_color_discrete(labels = c("Tumor", "Metastases"))
-ggsave("tSNE_by_Origin.png", plot = tSNE_by_Origin_plot, width = 10, height = 8, dpi = 300)
 
-#generate and save UMAP plot colouring cells by their origin
-UMAP_by_Cell_Type_plot <- DimPlot(seurat_obj, reduction = "umap", group.by = "cell_type") + 
-  ggtitle("UMAP by Cell Type") +
-  xlab("UMAP 1") + 
-  ylab("UMAP 2") +
-  theme_minimal()
-ggsave("UMAP_by_Cell_Type.png", plot = UMAP_by_Cell_Type_plot, width = 10, height = 8, dpi = 300)
+###
+# Sort markers by avg_log2FC and select top N genes
+top_markers <- head(markers[order(markers$avg_log2FC),], n = 25)
 
-#generate and save t-SNE plot colouring cells by their clusters
-tSNE_by_Clusters_plot <- DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters") + 
-  ggtitle("t-SNE by Clusters") +
-  xlab("t-SNE 1") + 
-  ylab("t-SNE 2") +
-  theme_minimal()
-ggsave("tSNE_by_Clusters.png", plot = tSNE_by_Clusters_plot, width = 10, height = 8, dpi = 300)
-
-#generate and save UMAP plot colouring cells by their cluster
-UMAP_by_Clusters_plot <- DimPlot(seurat_obj, reduction = "umap", group.by = "seurat_clusters") + 
-  ggtitle("UMAP by Clusters") +
-  xlab("UMAP 1") + 
-  ylab("UMAP 2") +
-  theme_minimal()
-ggsave("UMAP_by_Clusters.png", plot = UMAP_by_Clusters_plot, width = 10, height = 8, dpi = 300)
-
-#generate and save the average log2FC plot
-avg_log2FC_plot <- ggplot(top_genes, aes(x = reorder(gene, avg_log2FC), y = avg_log2FC)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  xlab("avg_log2FC") +
-  ylab("gene") +
-  theme_minimal()
-ggsave("averagelog2FC.png", plot = avg_log2FC_plot, width = 10, height = 8, dpi = 300)
-
-#generate and save volcano plot
-Volcano_Plot <- ggplot(degs, aes(x = logFC, y = -log10(pvalue))) +
-  geom_point(aes(color = significant)) +
-  theme_minimal()
-ggsave("Volcano_Plot.png", plot = Volcano_Plot, width = 10, height = 8, dpi = 300)
-
-#generate and save elbow plot
-ElbowPlot(seurat_obj) +
-  ggtitle("PCA Elbow Plot")
-ggsave("PCA_Elbow_Plot.png", width = 10, height = 8, dpi = 300)
-
-#generate and save the QC control metrics plot
-VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) +
-  ggtitle("QC Metrics")
-ggsave("QC_Metrics.png", width = 12, height = 6, dpi = 300)
+# Create a complete ranked list of genes
+all_genes <- FetchData(seurat_obj, vars = "RNA_snn_res.1")  # Be sure to adjust the vars according to your actual data variables
+gene_list <- setNames(all_genes$logFC, rownames(all_genes))  # Ensure logFC is computed in previous steps
+gene_list <- sort(gene_list, decreasing = TRUE)
+# Assume 'markers' contains DE results including logFC
+gene_list <- markers$avg_log2FC
+names(gene_list) <- markers$gene
+gene_list <- sort(gene_list, decreasing = TRUE)
 
