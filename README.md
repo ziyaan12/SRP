@@ -1,9 +1,7 @@
+# Re-analysis of Metastatic Breast Cancer scRNA-seq Data
 
 ![Logo](https://img.hotimg.com/Screenshot-2024-04-24-121024.md.jpeg)
 
-
-# Project Title
-Re-analysis of Metastatic Breast Cancer scRNA-seq Data
 
 
 
