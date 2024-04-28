@@ -411,3 +411,16 @@ p_dot <- DotPlot(seurat_obj, features = updated_genes, group.by = "seurat_cluste
 p_dot_interactive <- ggplotly(p_dot)
 p_dot_interactive
 
+# Create the interactive heatmap using plotly
+interactive_heatmap <- plot_ly(
+  #x = colnames(data_for_heatmap),  # Column names (usually conditions or samples)
+  y = rownames(data_for_heatmap),  # Row names (usually gene names)
+  z = as.matrix(data_for_heatmap),  # Data as matrix
+  type = "heatmap",
+  colorscale = "RdBu",  # A commonly used diverging color scale
+  showscale = TRUE  # Show color scale bar
+)
+
+# Display the heatmap
+interactive_heatmap
+
