@@ -8,9 +8,10 @@ library(patchwork)
 library(fgsea)
 library(msigdbr)
 library(pheatmap)
-library(ggtree)
+library(ggridges)
 library(clusterProfiler)
 library(enrichplot)
+library(tibble)
 
 # Specify the file path
 file_path <- "/home/zo24/SteeredResearchProject/groupproject/pipeline/4/re_analysis_counts_afterQC.csv"
@@ -89,10 +90,10 @@ ElbowPlot(seurat_obj)
 ElbowPlot(seurat_obj, ndims = 50, reduction = "pca")
 
 # Cluster the cells
-seurat_obj <- FindNeighbors(seurat_obj)#, dims = 1:20)
-seurat_obj <- FindClusters(seurat_obj)#, resolution = 0.1)
-seurat_obj <- FindClusters(seurat_obj, resolution = 0.3)
-seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
+seurat_obj <- FindNeighbors(seurat_obj)
+seurat_obj <- FindClusters(seurat_obj)
+#seurat_obj <- FindClusters(seurat_obj, resolution = 0.3)
+#seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
 
 #run UMAP and t-SNE
 seurat_obj <- RunUMAP(seurat_obj, dims = 1:20)
@@ -134,83 +135,279 @@ umap_cell_origin <- DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrig
 combined_umap <- umap_clusters + umap_cell_origin
 combined_umap
 
-
-##############
 #find top markers (most differentiall expressed genes)
-markers <- FindAllMarkers(object = seurat_obj, only.pos = FALSE,  min.pct = 0.1,)
-
-#extract top marker genes and trim dataset down so the heatmap is easier to read
-#top_genes <- markers$gene
-#top_markers <- markers %>% 
-#  group_by(cluster) %>%
-#  top_n(n = 15, wt = avg_log2FC)
-#unique_genes <- unique(top_markers$gene)
-#DoHeatmap(seurat_obj, features = unique_genes)
-
-###Gene Set Enrichment Analysis
-
-# Rank genes by logFC for GSEA
-gene_list <- markers$avg_log2FC
-names(gene_list) <- markers$gene
+markers <- FindAllMarkers(object = seurat_obj, only.pos = FALSE,  min.pct = 0.1, logfc.threshold = 0.25)
 
 
-# Sort the gene list from most upregulated to most downregulated
-gene_list <- sort(gene_list, decreasing = TRUE)
+#visualise the differentially expressed genes in a volcano plot
+volcano_plot <- ggplot(markers, aes(x = avg_log2FC, y = -log10(p_val), color = p_val_adj < 0.05)) +
+  geom_point(alpha = 0.4) +
+  scale_color_manual(values = c("grey", "red")) +
+  theme_minimal() +
+  labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 P-value")
+print(volcano_plot)
 
-# create data sets with the proliferation and EMT genes from the original study
-proliferation_genes <- c("MKI67", "MCM3", "PCNA")
-emt_genes <- c("KRT8", "ITGAV", "SERPINE1", "MET", "KRT18", "TGFBR1", "DSG2", "SPARC", "ITGB1", "ZEB1", "EMP3", "TNC", "EPCAM", "ST14", "KRT5", "ESRP1", "KRT14", "MMP2", "SNAI1", "COL1A1", "MUC1", "MYC", "CCN2", "FN1", "SOX9", "VIM", "KRT19")
+# Filter for the top upregulated and downregulated markers per cluster
+top_markers_per_cluster <- markers %>%
+  group_by(cluster) %>%
+  top_n(n = 5, wt = avg_log2FC) %>%
+  bind_rows(markers %>% 
+              group_by(cluster) %>%
+              top_n(n = 5, wt = -avg_log2FC))
 
-# Combine into a list for fgsea
-gene_sets <- list(EMT = emt_genes, Proliferation = proliferation_genes)
+# Get unique gene names from the top markers
+top_genes <- unique(top_markers_per_cluster$gene)
 
-#remove any duplicates
-gene_list <- gene_list[!duplicated(names(gene_list))]
+# Extract the data for these genes
+data_for_heatmap <- GetAssayData(seurat_obj, assay = "RNA", layer = "data")[top_genes, ]
 
-# Perform fgsea
-fgsea_results <- fgseaMultilevel(pathways = gene_sets, stats = gene_list, minSize = 5, maxSize = 500)
-#ties in the results so just running some troubleshooting to make sure its okay to proceed
-length(unique(gene_list)) / length(gene_list)
-table(duplicated(gene_list))
+#annotate the clusters to improve my visualisations
+sample_metadata <- seurat_obj@meta.data
+cluster_annotations <- sample_metadata[, "seurat_clusters", drop = FALSE]
 
-#view GSEA results
-head(fgsea_results[order(fgsea_results$padj), ])
 
-# filter top 5% of upregulated and downregualted genes
-logfc_threshold_up <- quantile(markers$avg_log2FC, 0.95)  # Top 5%
-logfc_threshold_down <- quantile(markers$avg_log2FC, 0.05)  # Bottom 5%
 
-#new dataset containing most upregulated and downregulated genes
-new_markers <- markers[markers$avg_log2FC >= logfc_threshold_up | markers$avg_log2FC <= logfc_threshold_down, ]
-head(new_markers)
-
-#create new dataset for GSEA
-new_gene_list <- new_markers$avg_log2FC
-names(new_gene_list) <- rownames(new_markers)
-
-# Sort the gene list for GSEA
-new_gene_list <- sort(new_gene_list, decreasing = TRUE)
-
-# Plot histogram of logFC values
-hist(markers$avg_log2FC, breaks = 50, main = "Distribution of logFC Values")
-
-gsea_plot <- ggplot(fgsea_results, aes(x = reorder(pathway, NES), y = NES, fill = padj < 0.05)) +
-  geom_col() +
-  coord_flip() +  # Flip the coordinates for better readability of pathway names
-  labs(x = "Pathway", y = "Normalized Enrichment Score (NES)", title = "GSEA Results") +
-  scale_fill_manual(values = c("TRUE" = "red", "FALSE" = "green"), name = "Significant") +
+ggplot(fgsea_results, aes(x = pathway, y = NES, color = padj < 0.05, size = -log10(padj))) +
+  geom_point() +
+  scale_color_manual(values = c("grey", "red")) +
+  labs(x = "Pathway", y = "Normalized Enrichment Score (NES)", color = "Significant") +
   theme_minimal()
 
-###
-# Sort markers by avg_log2FC and select top N genes
-top_markers <- head(markers[order(markers$avg_log2FC),], n = 25)
+pheatmap(data_for_heatmap,
+         color = colorRampPalette(c("navy", "white", "red"))(100),
+         annotation_col = cluster_annotations,  # Add cluster annotations
+         show_rownames = TRUE,                  # Show row names (gene names)
+         show_colnames = FALSE,                 # Hide column names (cell types)
+         fontsize_row = 10,                     # Adjust font size for row names if necessary
+         fontsize_col = 10,                     # Adjust font size for column names if necessary
+         border_color = NA) 
 
-# Create a complete ranked list of genes
-all_genes <- FetchData(seurat_obj, vars = "RNA_snn_res.1")  # Be sure to adjust the vars according to your actual data variables
-gene_list <- setNames(all_genes$logFC, rownames(all_genes))  # Ensure logFC is computed in previous steps
-gene_list <- sort(gene_list, decreasing = TRUE)
-# Assume 'markers' contains DE results including logFC
-gene_list <- markers$avg_log2FC
-names(gene_list) <- markers$gene
-gene_list <- sort(gene_list, decreasing = TRUE)
+###set gene list to use for GSEA (using the Proliferation and EMT genes mentioned in the main paper)
+
+#list of EMT genes
+emt_genes <- c("KRT8", "ITGAV", "SERPINE1", "MET", "KRT18", "TGFBR1", "DSG2", "SPARC", "ITGB1", "ZEB1", "EMP3", "TNC", "EPCAM", "ST14", "KRT5", "ESRP1", "KRT14", "MMP2", "SNAI1", "COL1A1", "MUC1", "MYC", "CCN2", "FN1", "SOX9", "VIM", "KRT19")
+
+#list of proliferation genes
+proliferation_genes <- c("MKI67", "MCM3", "PCNA")
+
+#combine the lists
+combined_genes <- c(emt_genes, proliferation_genes)
+
+# Using VlnPlot to visualize the distribution of expression levels across clusters
+VlnPlot(seurat_obj, features = combined_genes[1:5], group.by = "seurat_clusters")
+
+# Using DotPlot for a compact visualization
+DotPlot(seurat_obj, features = combined_genes, group.by = "seurat_clusters") + RotatedAxis()
+
+####Gene Set Enrichment Analysis
+
+# Create a named list of gene sets
+gene_sets <- list(
+  EMT = as.character(emt_genes),
+  Proliferation = as.character(proliferation_genes)
+)
+
+# Sort the markers dataframe by the ranking metric column and create a named vector
+ranked_gene_list <- markers_sorted$rank_metric
+names(ranked_gene_list) <- markers_sorted$gene
+
+# Sorting the ranked_gene_list after assigning names
+ranked_gene_list <- sort(ranked_gene_list, decreasing = TRUE)
+
+
+# Handling duplicates while maintaining names
+if(any(duplicated(names(ranked_gene_list)))) {
+  temp <- tapply(ranked_gene_list, names(ranked_gene_list), mean)
+  ranked_gene_list <- sort(temp, decreasing = TRUE)
+  names(ranked_gene_list) <- names(temp)  # Ensure names are carried over from temp
+}
+
+# Verify common genes are correctly identified
+common_genes <- intersect(names(ranked_gene_list), unlist(gene_sets))
+if (length(common_genes) < length(names(ranked_gene_list))) {
+  ranked_gene_list <- ranked_gene_list[names(ranked_gene_list) %in% common_genes]
+  gene_sets <- lapply(gene_sets, function(x) x[x %in% common_genes])
+}
+print(head(names(ranked_gene_list)))
+
+# Correctly ensuring it's a numeric vector with names
+ranked_gene_list <- as.numeric(ranked_gene_list)  # Ensures it's numeric
+names(ranked_gene_list) <- names(ranked_gene_list)  # Re-assign names if lost
+
+print(class(ranked_gene_list))
+print(is.numeric(ranked_gene_list))
+print(head(ranked_gene_list))
+print(head(names(ranked_gene_list)))
+print(head(gene_sets$EMT))
+print(names(gene_sets))
+
+gsea_results <- GSEA(ranked_gene_list,
+                     TERM2GENE = gene_sets,
+                     pAdjustMethod = "BH",
+                     minGSSize = 2,
+                     maxGSSize = 500,
+                     verbose = TRUE)
+
+
+# Check the results
+if (length(gsea_results) == 0) {
+  print("No significant pathways found.")
+} else {
+  print("GSEA ran successfully, check results for significance.")
+  print(as.data.frame(gsea_results))  # Using as.data.frame for a better format
+}
+
+# Create a binary matrix for gene membership in gene sets
+membership_matrix <- sapply(geneSets, function(gs) as.integer(names(geneList) %in% gs))
+
+# Then convert to a data frame for pheatmap
+membership_df <- as.data.frame(membership_matrix)
+rownames(membership_df) <- names(geneList)
+
+# Extract the gene list and their ranks from the S4 object
+geneList <- gsea_results@geneList
+
+# Extract the gene sets from the S4 object
+geneSets <- gsea_results@geneSets
+
+# Create a matrix to store the ranks for heatmap plotting
+# Initialize the matrix with NA values
+heatmap_matrix <- matrix(NA, nrow = length(geneList), ncol = length(geneSets), 
+                         dimnames = list(names(geneList), names(geneSets)))
+
+# Fill the matrix with ranks
+for (i in seq_along(geneSets)) {
+  genes_in_set <- geneSets[[i]]
+  heatmap_matrix[genes_in_set, i] <- geneList[genes_in_set]
+}
+
+# Replace NA with 0 or any other value to represent absent genes
+heatmap_matrix[is.na(heatmap_matrix)] <- 0
+
+
+# Plotting the heatmap
+pheatmap(heatmap_matrix, color = colorRampPalette(c("navy", "white", "firebrick3"))(100), 
+         clustering_distance_rows = 'correlation', clustering_distance_cols = 'correlation')
+
+
+
+# Enrichment plot for the first significant gene set
+gseaplot(gsea_results, geneSetID = which.min(gsea_results$adjPVal), title = names(gene_sets)[which.min(gsea_results$adjPVal)])
+
+# Ridge plot for all significant gene sets
+ridgeplot(gsea_results)
+
+# Dot plot for visualization of multiple gene sets
+dotplot(gsea_results)
+
+# Enrichment map
+emapplot(gsea_results)
+
+###making interactive plots for the website
+
+# Interactive violin plot after filtering
+p_violin_after <- ggplotly(
+  VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+)
+p_violin_after
+
+# Interactive scatter plot of nCount_RNA against percent.mt
+p_scatter1 <- plotly::ggplotly(
+  ggplot(seurat_obj@meta.data, aes(x = nCount_RNA, y = percent.mt)) +
+    geom_point() +
+    theme_minimal()
+)
+
+# Interactive scatter plot of nCount_RNA against nFeature_RNA
+p_scatter2 <- plotly::ggplotly(
+  ggplot(seurat_obj@meta.data, aes(x = nCount_RNA, y = nFeature_RNA)) +
+    geom_point() +
+    theme_minimal()
+)
+
+# Display interactive plots
+p_scatter1
+p_scatter2
+
+# Create t-SNE plots for clusters and cell origin
+tsne_clusters <- DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters") + 
+  ggtitle("t-SNE by Clusters") +
+  theme(legend.position = "none")  # Remove the default legend
+
+tsne_cell_origin <- DimPlot(seurat_obj, reduction = "tsne", group.by = "CellOrigin") + 
+  ggtitle("t-SNE by Cell Origin") +
+  theme(legend.position = "none")  # Remove the default legend
+
+# Convert to interactive plotly objects
+tsne_clusters_interactive <- ggplotly(tsne_clusters, tooltip = "text")
+tsne_cell_origin_interactive <- ggplotly(tsne_cell_origin, tooltip = "text")
+
+# Combine using subplot
+combined_tsne_interactive <- subplot(tsne_clusters_interactive, tsne_cell_origin_interactive, 
+                                     nrows = 1, shareX = TRUE, shareY = TRUE, titleX = FALSE, titleY = FALSE)
+
+# Adjust layout to include legends and title
+combined_tsne_interactive <- combined_tsne_interactive %>% 
+  layout(title = "t-SNE by Clusters vs. Cell Origin",
+         showlegend = TRUE,
+         legend = list(x = 1.02, y = 0.5, orientation = "v"),
+         annotations = list(
+           list(x = 0.25, y = 1.07, text = "Clusters", showarrow = F, xref = 'paper', yref = 'paper'),
+           list(x = 0.75, y = 1.07, text = "Cell Origin", showarrow = F, xref = 'paper', yref = 'paper')
+         ))
+
+# Print the interactive plot
+combined_tsne_interactive
+
+# Create UMAP plots for clusters and cell origin
+umap_clusters <- DimPlot(seurat_obj, reduction = "umap", group.by = "seurat_clusters", label = TRUE, repel = TRUE) + 
+  ggtitle("UMAP by Clusters") +
+  theme(legend.position = "none")  # Remove the default legend
+
+umap_cell_origin <- DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrigin", label = TRUE, repel = TRUE) + 
+  ggtitle("UMAP by Cell Origin") +
+  theme(legend.position = "none")  # Remove the default legend
+
+# Convert to interactive plotly objects
+umap_clusters_interactive <- ggplotly(umap_clusters, tooltip = "text")
+umap_cell_origin_interactive <- ggplotly(umap_cell_origin, tooltip = "text")
+
+# Combine using subplot
+combined_umap_interactive <- subplot(umap_clusters_interactive, umap_cell_origin_interactive, 
+                                     nrows = 1, shareX = TRUE, shareY = TRUE, titleX = FALSE, titleY = FALSE)
+
+# Adjust layout to include legends and title
+combined_umap_interactive <- combined_umap_interactive %>% 
+  layout(title = "UMAP by Clusters vs. Cell Origin",
+         showlegend = TRUE,
+         legend = list(x = 1.02, y = 0.5, orientation = "v"),
+         annotations = list(
+           list(x = 0.25, y = 1.07, text = "Clusters", showarrow = F, xref = 'paper', yref = 'paper'),
+           list(x = 0.75, y = 1.07, text = "Cell Origin", showarrow = F, xref = 'paper', yref = 'paper')
+         ))
+
+# Print the interactive plot
+combined_umap_interactive
+
+# Ensure the markers dataframe includes negative log10 of p-value for plotting
+markers$neg_log10_p_val <- -log10(markers$p_val)
+
+# Generate the volcano plot using ggplot2
+volcano_plot <- ggplot(markers, aes(x = avg_log2FC, y = neg_log10_p_val, color = p_val_adj < 0.05)) +
+  geom_point(alpha = 0.4) +
+  scale_color_manual(values = c("grey", "red")) +
+  theme_minimal() +
+  labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 P-value")
+
+# Check the plot
+print(volcano_plot)
+#convert to interactive
+p_volcano_interactive <- ggplotly(volcano_plot)
+# Display the interactive plot
+p_volcano_interactive
+
+# Convert DotPlot to interactive
+p_dot <- DotPlot(seurat_obj, features = updated_genes, group.by = "seurat_clusters") + RotatedAxis()
+p_dot_interactive <- ggplotly(p_dot)
+p_dot_interactive
 
