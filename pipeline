@@ -45,6 +45,7 @@ VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), nc
 #create a scatter plot of nCount_RNA against percent.mt to assess the correlation
 FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "percent.mt")+
   theme(legend.position = "none")
+
 #create a scatter plot of nCount_RNA against nFeature_RNA to assess the correlation
 FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")+
   theme(legend.position = "none")
