@@ -114,9 +114,9 @@ DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrigin", label = TRUE, r
 DimPlot(seurat_obj, reduction = "tsne", group.by = "CellOrigin")
 
 #combine the generated visualisations to make them easier to compare and for better aesthetics
-# t-SNE plots
-tsne_clusters <- DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters") + ggtitle("t-SNE by Clusters")
 
+#t-SNE plots
+tsne_clusters <- DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters") + ggtitle("t-SNE by Clusters")
 tsne_cell_origin <- DimPlot(seurat_obj, reduction = "tsne", group.by = "CellOrigin") + ggtitle("t-SNE by Cell Origin")
 
 #combine them using patchwork
@@ -125,13 +125,11 @@ combined_tsne
 
 #UMAP plots
 umap_clusters <- DimPlot(seurat_obj, reduction = "umap", group.by = "seurat_clusters", label = TRUE, repel = TRUE) + ggtitle("UMAP by Clusters")
-
 umap_cell_origin <- DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrigin", label = TRUE, repel = TRUE) + ggtitle("UMAP by Cell Origin")
 
 #combine again using patchwork
 combined_umap <- umap_clusters + umap_cell_origin
 combined_umap
-
 
 #find top markers (most differentially expressed genes)
 markers <- FindAllMarkers(object = seurat_obj, only.pos = FALSE,  min.pct = 0.1, logfc.threshold = 0.25)
