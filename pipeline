@@ -11,7 +11,7 @@ library(pheatmap)
 library(ggridges)
 library(clusterProfiler)
 library(enrichplot)
-library(tibble)
+
 
 #specify the path to the file
 file_path <- "/home/zo24/SteeredResearchProject/groupproject/pipeline/4/re_analysis_counts_afterQC.csv"
