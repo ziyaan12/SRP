@@ -212,6 +212,19 @@ gene_sets <- list(
   Proliferation = as.character(proliferation_genes)
 )
 
+Heatmap(gene_sets, 
+        name = "Expression", 
+        col = col_fun, 
+        show_row_names = TRUE,
+        show_column_names = TRUE,
+        cluster_rows = FALSE, 
+        cluster_columns = FALSE,
+        show_column_dend = FALSE, 
+        show_row_dend = FALSE,
+
+##############       
+        
+        
 # Sort the markers dataframe by the ranking metric column and create a named vector
 ranked_gene_list <- markers_sorted$rank_metric
 names(ranked_gene_list) <- markers_sorted$gene
@@ -257,44 +270,11 @@ gsea_results <- GSEA(ranked_gene_list,
 
 # Check the results
 if (length(gsea_results) == 0) {
-  print("No significant pathways found.")
+  print("uh oh, try again.")
 } else {
-  print("GSEA ran successfully, check results for significance.")
+  print("GSEA worked yay")
   print(as.data.frame(gsea_results))  # Using as.data.frame for a better format
 }
-
-# Create a binary matrix for gene membership in gene sets
-membership_matrix <- sapply(geneSets, function(gs) as.integer(names(geneList) %in% gs))
-
-# Then convert to a data frame for pheatmap
-membership_df <- as.data.frame(membership_matrix)
-rownames(membership_df) <- names(geneList)
-
-# Extract the gene list and their ranks from the S4 object
-geneList <- gsea_results@geneList
-
-# Extract the gene sets from the S4 object
-geneSets <- gsea_results@geneSets
-
-# Create a matrix to store the ranks for heatmap plotting
-# Initialize the matrix with NA values
-heatmap_matrix <- matrix(NA, nrow = length(geneList), ncol = length(geneSets), 
-                         dimnames = list(names(geneList), names(geneSets)))
-
-# Fill the matrix with ranks
-for (i in seq_along(geneSets)) {
-  genes_in_set <- geneSets[[i]]
-  heatmap_matrix[genes_in_set, i] <- geneList[genes_in_set]
-}
-
-# Replace NA with 0 or any other value to represent absent genes
-heatmap_matrix[is.na(heatmap_matrix)] <- 0
-
-
-# Plotting the heatmap
-pheatmap(heatmap_matrix, color = colorRampPalette(c("navy", "white", "firebrick3"))(100), 
-         clustering_distance_rows = 'correlation', clustering_distance_cols = 'correlation')
-
 
 
 # Enrichment plot for the first significant gene set
