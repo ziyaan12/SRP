@@ -13,38 +13,39 @@ library(clusterProfiler)
 library(enrichplot)
 library(tibble)
 
-# Specify the file path
+#specify the path to the file
 file_path <- "/home/zo24/SteeredResearchProject/groupproject/pipeline/4/re_analysis_counts_afterQC.csv"
 
-# Read the reanalysis data after QC CSV file using read.csv
+#read the reanalysis data after QC .csv file using read.csv
 data <- read.csv(file_path, row.names = 1)  
 
-# Convert the counts to a matrix
+#convert the file into a data matrix
 data_matrix <- as.matrix(data)
 
-# Create the Seurat object from counts matrix
+#create the seurat ojbect from the data matrix
 seurat_obj <- CreateSeuratObject(counts = data_matrix, project = "pipeline_analysis")
 
-###pre-processing workfolw
+###pre-processing workflow###
+
 #quality control and selecting cells for further analysis
 #data normalisation
-#identification of highly variable features )or feature selection)
+#identification of highly variable features (or feature selection)
 
 ###QC metrics (nFeature_RNA, nCount_RNA and percent.mt)
 #low quality cells or empty droplets often have very few genes (low nFeature_RNA and nCount_RNA)
 #cell doublets or multiplets have high nFeature_RNA and nCount_RNA
 #dying/low-quality cells often have high mitochondrial genes percentage (percent.mt)
 
-# Calculate and store the mitochondrial percentage in the metadata
+#calculate percentage of mitochondrial genes and store that in the seurat object metadata
 seurat_obj <- PercentageFeatureSet(seurat_obj, pattern = "^MT", col.name = "percent.mt")
 
-# violin plot to help choose the appropriate filtering parameters
+#create a violin plot to help choose the parameters for nFeature_RNA, nCount_RNA and percent.mt
 VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
 
-# Create a scatter plot of nCount_RNA against percent.mt
+#create a scatter plot of nCount_RNA against percent.mt to assess the correlation
 FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "percent.mt")+
   theme(legend.position = "none")
-# Create a scatter plot of nCount_RNA against nFeature_RNA
+#create a scatter plot of nCount_RNA against nFeature_RNA to assess the correlation
 FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")+
   theme(legend.position = "none")
 
@@ -54,31 +55,33 @@ seurat_obj <- subset(seurat_obj, subset = nFeature_RNA > 2500 & nFeature_RNA < 1
 #violin plot after filtering to review the results
 VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
 
-# Create a scatter plot of nCount_RNA against percent.mt AFTER FILTERING
+#recreate the scatter plot of nCount_RNA against percent.mt AFTER FILTERING
 FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "percent.mt")+
   theme(legend.position = "none")
-# Create a scatter plot of nCount_RNA against nFeature_RNA AFTER FILTERING
+#recreate the scatter plot of nCount_RNA against nFeature_RNA AFTER FILTERING
 FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")+
   theme(legend.position = "none")
 
-# Normalize the data using log nomalisation
+###filtering is done so we can carry on with the data processing :)
+
+#normalize the data using log nomalisation
 seurat_obj <- NormalizeData(seurat_obj,
                             normalization.method = "LogNormalize", scale.factor = 10000)
 
-# identification of highly variable features
+#identification of highly variable features
 seurat_obj <- FindVariableFeatures(seurat_obj, 
                                    selection.method = "vst", nfeatures = 2000)
 
 #variable feature plot to identift number of variable features
 VariableFeaturePlot(seurat_obj)
 
-# Perform scaling
+#perform scaling
 seurat_obj <- ScaleData(seurat_obj)
 all.genes <- rownames(seurat_obj)
 seurat_obj <- ScaleData(seurat_obj, features = all.genes)
 
 
-# Perform dimensionality reduction (PCA on the data)
+#perform dimensionality reduction (PCA on the data)
 seurat_obj <- RunPCA(seurat_obj)
 seurat_obj <- RunPCA(seurat_obj, npcs = 50, features = VariableFeatures(object = seurat_obj), ndims.print = 1:5, nfeatures.print = 30)
 
@@ -87,15 +90,17 @@ DimPlot(seurat_obj, reduction = "pca", dims = c(1,2))
 
 #elbow plot
 ElbowPlot(seurat_obj)
+#better elbow plot
 ElbowPlot(seurat_obj, ndims = 50, reduction = "pca")
 
-# Cluster the cells
+#cluster the cells
 seurat_obj <- FindNeighbors(seurat_obj)
 seurat_obj <- FindClusters(seurat_obj)
 #seurat_obj <- FindClusters(seurat_obj, resolution = 0.3)
 #seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
 
-#run UMAP and t-SNE
+
+#run the UMAP and t-SNE
 seurat_obj <- RunUMAP(seurat_obj, dims = 1:20)
 DimPlot(seurat_obj, reduction = "umap", label = TRUE, repel = TRUE)
 seurat_obj <- RunTSNE(object = seurat_obj)
@@ -112,7 +117,7 @@ table(seurat_obj$CellOrigin)
 DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrigin", label = TRUE, repel = TRUE)
 DimPlot(seurat_obj, reduction = "tsne", group.by = "CellOrigin")
 
-#combine the generated visualisations to make them easier to compare
+#combine the generated visualisations to make them easier to compare and for better aesthetics
 # t-SNE plots
 tsne_clusters <- DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters") + 
   ggtitle("t-SNE by Clusters")
@@ -135,9 +140,18 @@ umap_cell_origin <- DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrig
 combined_umap <- umap_clusters + umap_cell_origin
 combined_umap
 
-#find top markers (most differentiall expressed genes)
+
+#find top markers (most differentially expressed genes)
 markers <- FindAllMarkers(object = seurat_obj, only.pos = FALSE,  min.pct = 0.1, logfc.threshold = 0.25)
 
+###create a .csv file of the metadata from seurat_obj to include on the website
+
+# Extract metadata from the Seurat object
+metadata <- seurat_obj@meta.data
+#specify the file path
+output_file_path <- "/home/zo24/SteeredResearchProject/groupproject/pipeline/5/metadata.csv"
+# Write the metadata to a .csv file
+write.csv(metadata, output_file_path, row.names = TRUE)
 
 #visualise the differentially expressed genes in a volcano plot
 volcano_plot <- ggplot(markers, aes(x = avg_log2FC, y = -log10(p_val), color = p_val_adj < 0.05)) +
@@ -166,7 +180,6 @@ sample_metadata <- seurat_obj@meta.data
 cluster_annotations <- sample_metadata[, "seurat_clusters", drop = FALSE]
 
 
-
 ggplot(fgsea_results, aes(x = pathway, y = NES, color = padj < 0.05, size = -log10(padj))) +
   geom_point() +
   scale_color_manual(values = c("grey", "red")) +
@@ -174,7 +187,7 @@ ggplot(fgsea_results, aes(x = pathway, y = NES, color = padj < 0.05, size = -log
   theme_minimal()
 
 pheatmap(data_for_heatmap,
-         color = colorRampPalette(c("navy", "white", "red"))(100),
+         color = colorRampPalette(c("purple", "black", "yellow"))(100),
          annotation_col = cluster_annotations,  # Add cluster annotations
          show_rownames = TRUE,                  # Show row names (gene names)
          show_colnames = FALSE,                 # Hide column names (cell types)
@@ -241,6 +254,7 @@ print(head(names(ranked_gene_list)))
 print(head(gene_sets$EMT))
 print(names(gene_sets))
 
+#run the GSEA (this didnt work for some reason)
 gsea_results <- GSEA(ranked_gene_list,
                      TERM2GENE = gene_sets,
                      pAdjustMethod = "BH",
