@@ -173,7 +173,9 @@ pheatmap(data_for_heatmap,
 ###set gene list to use for GSEA (using the Proliferation and EMT genes mentioned in the main paper)
 
 #list of EMT genes
-emt_genes <- c("KRT8", "ITGAV", "SERPINE1", "MET", "KRT18", "TGFBR1", "DSG2", "SPARC", "ITGB1", "ZEB1", "EMP3", "TNC", "EPCAM", "ST14", "KRT5", "ESRP1", "KRT14", "MMP2", "SNAI1", "COL1A1", "MUC1", "MYC", "CCN2", "FN1", "SOX9", "VIM", "KRT19")
+emt_genes <- c("KRT8", "ITGAV", "SERPINE1", "MET", "KRT18", "TGFBR1", "DSG2", "SPARC", 
+    "ITGB1", "ZEB1", "EMP3", "TNC", "EPCAM", "ST14", "KRT5", "ESRP1", "KRT14", "MMP2", 
+    "SNAI1", "COL1A1", "MUC1", "MYC", "CCN2", "FN1", "SOX9", "VIM", "KRT19")
 
 #list of proliferation genes
 proliferation_genes <- c("MKI67", "MCM3", "PCNA")
