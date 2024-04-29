@@ -161,39 +161,31 @@ volcano_plot <- ggplot(markers, aes(x = avg_log2FC, y = -log10(p_val), color = p
   labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 P-value")
 print(volcano_plot)
 
-# Filter for the top upregulated and downregulated markers per cluster
-top_markers_per_cluster <- markers %>%
-  group_by(cluster) %>%
-  top_n(n = 5, wt = avg_log2FC) %>%
-  bind_rows(markers %>% 
-              group_by(cluster) %>%
-              top_n(n = 5, wt = -avg_log2FC))
+#sort markers by log fold change and p-value, and select the top genes
+top_up_genes <- markers %>% 
+  filter(avg_log2FC > 0) %>%
+  top_n(20, wt = avg_log2FC)
 
-# Get unique gene names from the top markers
-top_genes <- unique(top_markers_per_cluster$gene)
+top_down_genes <- markers %>% 
+  filter(avg_log2FC < 0) %>%
+  top_n(20, wt = -avg_log2FC)
 
-# Extract the data for these genes
-data_for_heatmap <- GetAssayData(seurat_obj, assay = "RNA", layer = "data")[top_genes, ]
+# Combine the top upregulated and downregulated genes
+top_genes <- unique(c(top_up_genes$gene, top_down_genes$gene))
 
-#annotate the clusters to improve my visualisations
-sample_metadata <- seurat_obj@meta.data
-cluster_annotations <- sample_metadata[, "seurat_clusters", drop = FALSE]
+# Get the normalized data for the selected top genes
+data_for_heatmap <- GetAssayData(seurat_obj, slot = "data")[top_genes, ]
 
-
-ggplot(fgsea_results, aes(x = pathway, y = NES, color = padj < 0.05, size = -log10(padj))) +
-  geom_point() +
-  scale_color_manual(values = c("grey", "red")) +
-  labs(x = "Pathway", y = "Normalized Enrichment Score (NES)", color = "Significant") +
-  theme_minimal()
-
+# Generate the heatmap with the selected top genes
 pheatmap(data_for_heatmap,
-         color = colorRampPalette(c("purple", "black", "yellow"))(100),
-         annotation_col = cluster_annotations,  # Add cluster annotations
-         show_rownames = TRUE,                  # Show row names (gene names)
-         show_colnames = FALSE,                 # Hide column names (cell types)
-         fontsize_row = 10,                     # Adjust font size for row names if necessary
-         fontsize_col = 10,                     # Adjust font size for column names if necessary
-         border_color = NA) 
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         show_rownames = TRUE,
+         show_colnames = FALSE,
+         fontsize_row = 14,
+         fontsize_col = 10,
+         annotation_col = cluster_annotations,)
 
 ###set gene list to use for GSEA (using the Proliferation and EMT genes mentioned in the main paper)
 
