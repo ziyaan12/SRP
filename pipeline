@@ -1,0 +1,336 @@
+#load the libraries
+library(Seurat)
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(plotly)
+library(patchwork)
+library(fgsea)
+library(msigdbr)
+library(pheatmap)
+library(ggridges)
+library(clusterProfiler)
+library(enrichplot)
+library(tibble)
+
+#specify the path to the file
+file_path <- "/home/zo24/SteeredResearchProject/groupproject/pipeline/4/re_analysis_counts_afterQC.csv"
+
+#read the reanalysis data after QC .csv file using read.csv
+data <- read.csv(file_path, row.names = 1)  
+
+#convert the file into a data matrix
+data_matrix <- as.matrix(data)
+
+#create the seurat ojbect from the data matrix
+seurat_obj <- CreateSeuratObject(counts = data_matrix, project = "pipeline_analysis")
+
+###pre-processing workflow###
+
+#quality control and selecting cells for further analysis
+#data normalisation
+#identification of highly variable features (or feature selection)
+
+###QC metrics (nFeature_RNA, nCount_RNA and percent.mt)
+#low quality cells or empty droplets often have very few genes (low nFeature_RNA and nCount_RNA)
+#cell doublets or multiplets have high nFeature_RNA and nCount_RNA
+#dying/low-quality cells often have high mitochondrial genes percentage (percent.mt)
+
+#calculate percentage of mitochondrial genes and store that in the seurat object metadata
+seurat_obj <- PercentageFeatureSet(seurat_obj, pattern = "^MT", col.name = "percent.mt")
+
+#create a violin plot to help choose the parameters for nFeature_RNA, nCount_RNA and percent.mt
+VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+#create a scatter plot of nCount_RNA against percent.mt to assess the correlation
+FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "percent.mt")+ theme(legend.position = "none")
+
+#create a scatter plot of nCount_RNA against nFeature_RNA to assess the correlation
+FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")+ theme(legend.position = "none")
+
+#filter the cells based on the parameters selected from the violin plot
+seurat_obj <- subset(seurat_obj, subset = nFeature_RNA > 2500 & nFeature_RNA < 10000 & nCount_RNA < 3e+06 & percent.mt < 15)
+
+#violin plot after filtering to review the results
+VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+#recreate the scatter plot of nCount_RNA against percent.mt AFTER FILTERING
+FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "percent.mt")+ theme(legend.position = "none")
+
+#recreate the scatter plot of nCount_RNA against nFeature_RNA AFTER FILTERING
+FeatureScatter(object = seurat_obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")+ theme(legend.position = "none")
+
+###filtering is done so we can carry on with the data processing :)
+
+#normalize the data using log nomalisation
+seurat_obj <- NormalizeData(seurat_obj, normalization.method = "LogNormalize", scale.factor = 10000)
+
+#identification of highly variable features
+seurat_obj <- FindVariableFeatures(seurat_obj, selection.method = "vst", nfeatures = 2000)
+
+#variable feature plot to identift number of variable features
+VariableFeaturePlot(seurat_obj)
+
+#perform scaling
+seurat_obj <- ScaleData(seurat_obj)
+all.genes <- rownames(seurat_obj)
+seurat_obj <- ScaleData(seurat_obj, features = all.genes)
+
+
+#perform dimensionality reduction (PCA on the data)
+seurat_obj <- RunPCA(seurat_obj)
+seurat_obj <- RunPCA(seurat_obj, npcs = 50, features = VariableFeatures(object = seurat_obj), ndims.print = 1:5, nfeatures.print = 30)
+
+#visualise PCA results
+DimPlot(seurat_obj, reduction = "pca", dims = c(1,2))
+
+#elbow plot
+ElbowPlot(seurat_obj)
+#better elbow plot
+ElbowPlot(seurat_obj, ndims = 50, reduction = "pca")
+
+#cluster the cells
+seurat_obj <- FindNeighbors(seurat_obj)
+seurat_obj <- FindClusters(seurat_obj)
+#seurat_obj <- FindClusters(seurat_obj, resolution = 0.3)
+#seurat_obj <- FindClusters(seurat_obj, resolution = 0.5)
+
+
+#run the UMAP and t-SNE
+seurat_obj <- RunUMAP(seurat_obj, dims = 1:20)
+DimPlot(seurat_obj, reduction = "umap", label = TRUE, repel = TRUE)
+seurat_obj <- RunTSNE(object = seurat_obj)
+DimPlot(object = seurat_obj, reduction = "tsne")
+
+#visualise the clusters
+DimPlot(seurat_obj)
+
+#create new metadata category to identify cells as either Tumor or Metastases
+seurat_obj$CellOrigin <- ifelse(grepl("Tumor", colnames(seurat_obj)), "Tumor", "Metastases")
+table(seurat_obj$CellOrigin)
+
+#visualise UMAP and t-SNE based on Cell Origin
+DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrigin", label = TRUE, repel = TRUE)
+DimPlot(seurat_obj, reduction = "tsne", group.by = "CellOrigin")
+
+#combine the generated visualisations to make them easier to compare and for better aesthetics
+# t-SNE plots
+tsne_clusters <- DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters") + ggtitle("t-SNE by Clusters")
+
+tsne_cell_origin <- DimPlot(seurat_obj, reduction = "tsne", group.by = "CellOrigin") + ggtitle("t-SNE by Cell Origin")
+
+#combine them using patchwork
+combined_tsne <- tsne_clusters + tsne_cell_origin
+combined_tsne
+
+#UMAP plots
+umap_clusters <- DimPlot(seurat_obj, reduction = "umap", group.by = "seurat_clusters", label = TRUE, repel = TRUE) + ggtitle("UMAP by Clusters")
+
+umap_cell_origin <- DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrigin", label = TRUE, repel = TRUE) + ggtitle("UMAP by Cell Origin")
+
+#combine again using patchwork
+combined_umap <- umap_clusters + umap_cell_origin
+combined_umap
+
+
+#find top markers (most differentially expressed genes)
+markers <- FindAllMarkers(object = seurat_obj, only.pos = FALSE,  min.pct = 0.1, logfc.threshold = 0.25)
+
+#visualise the differentially expressed genes in a volcano plot
+volcano_plot <- ggplot(markers, aes(x = avg_log2FC, y = -log10(p_val), color = p_val_adj < 0.05)) +
+  geom_point(alpha = 0.4) +
+  scale_color_manual(values = c("grey", "red")) +
+  theme_minimal() +
+  labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 P-value")
+print(volcano_plot)
+
+#sort markers by log fold change and p-value, and select the top genes
+top_up_genes <- markers %>% 
+  filter(avg_log2FC > 0) %>%
+  top_n(20, wt = avg_log2FC)
+
+top_down_genes <- markers %>% 
+  filter(avg_log2FC < 0) %>%
+  top_n(20, wt = -avg_log2FC)
+
+#combine the top upregulated and downregulated genes
+top_genes <- unique(c(top_up_genes$gene, top_down_genes$gene))
+
+#get the normalized data for the selected top genes
+data_for_heatmap <- GetAssayData(seurat_obj, slot = "data")[top_genes, ]
+
+#generate the heatmap with the selected top genes
+pheatmap(data_for_heatmap,
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         show_rownames = TRUE,
+         show_colnames = FALSE,
+         fontsize_row = 14,
+         fontsize_col = 10,
+         annotation_col = cluster_annotations,)
+
+###now for the Gene Set Enrichment Analysis (GSEA)
+
+###set gene list to use for GSEA (using the Proliferation and EMT genes mentioned in the main paper)
+
+#list of EMT genes
+emt_genes <- c("KRT8", "ITGAV", "SERPINE1", "MET", "KRT18", "TGFBR1", "DSG2", "SPARC", "ITGB1", "ZEB1", "EMP3", "TNC", "EPCAM", "ST14", "KRT5", "ESRP1", "KRT14", "MMP2", "SNAI1", "COL1A1", "MUC1", "MYC", "CCN2", "FN1", "SOX9", "VIM", "KRT19")
+
+#list of proliferation genes
+proliferation_genes <- c("MKI67", "MCM3", "PCNA")
+
+#combine the lists
+gene_sets <- list(EMT = emt_genes, Proliferation = proliferation_genes)
+
+#preparing gene list with scores for GSEA
+ranked_gene_list <- markers$avg_log2FC
+names(ranked_gene_list) <- markers$gene
+
+#handle duplicates by averaging their logFC
+ranked_gene_list <- tapply(ranked_gene_list, names(ranked_gene_list), mean)
+
+#convert the result to a numeric vector and ensure names are retained
+ranked_gene_list <- as.numeric(ranked_gene_list)
+names(ranked_gene_list) <- names(tapply(markers$avg_log2FC, markers$gene, mean))
+
+#sort the ranked gene list in descending order
+ranked_gene_list <- sort(ranked_gene_list, decreasing = TRUE)
+
+#run the GSEA (and pray)
+gsea_results <- GSEA(ranked_gene_list,
+                     TERM2GENE = gene_sets,
+                     pAdjustMethod = "BH",
+                     pvalueCutoff = 0.05,
+                     minGSSize = 10,
+                     maxGSSize = 500,
+                     verbose = TRUE)
+
+#run GSEA again (and pray more)
+gsea_results <- GSEA(ranked_gene_list, TERM2GENE = gene_sets, pAdjustMethod = "BH", minGSSize = 2, maxGSSize = 500, verbose = TRUE)
+
+###########################after days and days of non stop trying, the GSEA sadly did not work:(
+
+#using VlnPlot to visualize the distribution of expression levels across clusters for the EMT/Proliferation genes
+VlnPlot(seurat_obj, features = combined_genes[1:5], group.by = "seurat_clusters")
+
+#using DotPlot for a compact visualization for the EMT/Proliferation genes
+DotPlot(seurat_obj, features = combined_genes, group.by = "seurat_clusters") + RotatedAxis()
+
+
+
+###making interactive plots for the website
+
+#interactive violin plot after filtering
+p_violin_after <- ggplotly(
+  VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+)
+p_violin_after
+
+#interactive scatter plot of nCount_RNA against percent.mt
+p_scatter1 <- plotly::ggplotly(
+  ggplot(seurat_obj@meta.data, aes(x = nCount_RNA, y = percent.mt)) +
+    geom_point() +
+    theme_minimal()
+)
+
+#interactive scatter plot of nCount_RNA against nFeature_RNA
+p_scatter2 <- plotly::ggplotly(
+  ggplot(seurat_obj@meta.data, aes(x = nCount_RNA, y = nFeature_RNA)) +
+    geom_point() +
+    theme_minimal()
+)
+
+#display interactive plots
+p_scatter1
+p_scatter2
+
+#create t-SNE plots for clusters and cell origin
+tsne_clusters <- DimPlot(seurat_obj, reduction = "tsne", group.by = "seurat_clusters") + ggtitle("t-SNE by Clusters") + theme(legend.position = "none")
+
+tsne_cell_origin <- DimPlot(seurat_obj, reduction = "tsne", group.by = "CellOrigin") + ggtitle("t-SNE by Cell Origin") + theme(legend.position = "none")
+
+#convert to interactive plotly objects
+tsne_clusters_interactive <- ggplotly(tsne_clusters, tooltip = "text")
+tsne_cell_origin_interactive <- ggplotly(tsne_cell_origin, tooltip = "text")
+
+#combine using subplot
+combined_tsne_interactive <- subplot(tsne_clusters_interactive, tsne_cell_origin_interactive, nrows = 1, shareX = TRUE, shareY = TRUE, titleX = FALSE, titleY = FALSE)
+
+#adjust layout to include legends and title
+combined_tsne_interactive <- combined_tsne_interactive %>% 
+  layout(title = "t-SNE by Clusters vs. Cell Origin",
+         showlegend = TRUE,
+         legend = list(x = 1.02, y = 0.5, orientation = "v"),
+         annotations = list(
+           list(x = 0.25, y = 1.07, text = "Clusters", showarrow = F, xref = 'paper', yref = 'paper'),
+           list(x = 0.75, y = 1.07, text = "Cell Origin", showarrow = F, xref = 'paper', yref = 'paper')
+         ))
+
+#print the interactive plot
+combined_tsne_interactive
+
+#create UMAP plots for clusters and cell origin
+umap_clusters <- DimPlot(seurat_obj, reduction = "umap", group.by = "seurat_clusters", label = TRUE, repel = TRUE) + 
+  ggtitle("UMAP by Clusters") +
+  theme(legend.position = "none")
+
+umap_cell_origin <- DimPlot(seurat_obj, reduction = "umap", group.by = "CellOrigin", label = TRUE, repel = TRUE) + 
+  ggtitle("UMAP by Cell Origin") +
+  theme(legend.position = "none")
+
+#convert to interactive plotly objects
+umap_clusters_interactive <- ggplotly(umap_clusters, tooltip = "text")
+umap_cell_origin_interactive <- ggplotly(umap_cell_origin, tooltip = "text")
+
+#combine using subplot
+combined_umap_interactive <- subplot(umap_clusters_interactive, umap_cell_origin_interactive, nrows = 1, shareX = TRUE, shareY = TRUE, titleX = FALSE, titleY = FALSE)
+
+#adjust layout to include legends and title
+combined_umap_interactive <- combined_umap_interactive %>% 
+  layout(title = "UMAP by Clusters vs. Cell Origin",
+         showlegend = TRUE,
+         legend = list(x = 1.02, y = 0.5, orientation = "v"),
+         annotations = list(
+           list(x = 0.25, y = 1.07, text = "Clusters", showarrow = F, xref = 'paper', yref = 'paper'),
+           list(x = 0.75, y = 1.07, text = "Cell Origin", showarrow = F, xref = 'paper', yref = 'paper')
+         ))
+
+#print the interactive plot
+combined_umap_interactive
+
+#ensure the markers dataframe includes negative log10 of p-value for plotting
+markers$neg_log10_p_val <- -log10(markers$p_val)
+
+#generate the volcano plot using ggplot2
+volcano_plot <- ggplot(markers, aes(x = avg_log2FC, y = neg_log10_p_val, color = p_val_adj < 0.05)) +
+  geom_point(alpha = 0.4) +
+  scale_color_manual(values = c("grey", "red")) +
+  theme_minimal() +
+  labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 P-value")
+
+#check the plot
+print(volcano_plot)
+#convert to interactive
+p_volcano_interactive <- ggplotly(volcano_plot)
+#display the interactive plot
+p_volcano_interactive
+
+#convert DotPlot to interactive
+p_dot <- DotPlot(seurat_obj, features = updated_genes, group.by = "seurat_clusters") + RotatedAxis()
+p_dot_interactive <- ggplotly(p_dot)
+p_dot_interactive
+
+#create the interactive heatmap using plotly
+interactive_heatmap <- plot_ly(
+  #x = colnames(data_for_heatmap),
+  y = rownames(data_for_heatmap),
+  z = as.matrix(data_for_heatmap),
+  type = "heatmap",
+  colorscale = "RdBu",
+  showscale = TRUE
+)
+
+# Display the heatmap
+interactive_heatmap
+
