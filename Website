@@ -25,21 +25,10 @@ ui <- fluidPage(
                sidebarPanel(
                  h3("Conducting the pipeline (re-analysis) "),
                  uiOutput("summary1"),
+                 h3("Interactive Plots"),
+                 uiOutput("interactive_plots1")
                ),
                mainPanel(
-                 # Add interactive plots and gene query to top right
-                 h3("Interactive Plots"),
-                 lapply(c(
-                   "1.clustering_Fig.2c.html",
-                   "2.t-SNE_by_site_Fig.1e.html",
-                   "3.t-SNE_by_model_Fig.1d.html",
-                   "4.tsne_libcomplexity_levels_Fig.2a.html",
-                   "5.tsne_cellcycle_combined_Fig.2b.html",
-                   "6.library_complexity_bar_graph_Fig.2d.part1.html",
-                   "7.cell_cycle_bar_graph_Fig.2d.part2.html"
-                 ), function(file) {
-                   tags$div(tags$a(href = file, target = "_blank", file))
-                 }),
                  # Images below the text with heading "Results"
                  h3("Results"),
                  fluidRow(
@@ -63,22 +52,10 @@ ui <- fluidPage(
                sidebarPanel(
                  h3("Conducting the alternative pipeline (novel analysis)"),
                  uiOutput("summary2"),
+                 h3("Interactive Plots"),
+                 uiOutput("interactive_plots2")
                ),
                mainPanel(
-                 # Add interactive plots and gene query to top right
-                 h3("Interactive Plots"),
-                 lapply(c(
-                   "interactiveDEGvolcanoplot.html",
-                   "interactivedotplot.html",
-                   "interactiveheatmap.html",
-                   "interactivetsne.html",
-                   "interactiveumap.html",
-                   "nFeaturevsnCount.html",
-                   "percent.mtagainstnCount.html",
-                   "volcanoplot.html"
-                 ), function(file) {
-                   tags$div(tags$a(href = file, target = "_blank", file))
-                 }),
                  # Adding images of the visualization of the analysis
                  h3("Results"),
                  fluidRow(
@@ -105,18 +82,6 @@ ui <- fluidPage(
 # Server
 server <- function(input, output) {
   
-  # Load large data for Pipeline Analysis tab
-  data_normal <- reactive({
-    req(input$gene_query1)
-    fread("Logcount.csv")
-  })
-  
-  # Load large data for Alternative Pipeline Analysis tab
-  data_alternative <- reactive({
-    req(input$gene_query2)
-    fread("metadata.csv")
-  })
-  
   # Summary of analyses for Pipeline Analysis tab
   output$summary1 <- renderUI({  
     text <- " Re-analyzing the RNA sequencing data, as outlined by Hamelin et al., involved a meticulous series of steps aimed at processing, analyzing, and interpreting the dataset. Initially, data retrieval and preparation were prioritized, with RNA sequencing data obtained from the GEO and SRA databases. This involved writing Bash scripts to download and convert files to the necessary fastq format, ensuring compatibility for subsequent analysis. Additionally, the configuration of the SRA toolkit and monitoring of download progress were essential tasks during this phase.
@@ -142,6 +107,36 @@ Finally, data retrieval from external databases, such as KMplotter, enabled addi
     HTML(paste("<p>", paragraphs, "</p>", collapse = "<br>"))
   })
   
+  # Generate interactive plot links for Pipeline Analysis tab
+  output$interactive_plots1 <- renderUI({
+    lapply(c(
+      "1.clustering_Fig.2c.html",
+      "2.t-SNE_by_site_Fig.1e.html",
+      "3.t-SNE_by_model_Fig.1d.html",
+      "4.tsne_libcomplexity_levels_Fig.2a.html",
+      "5.tsne_cellcycle_combined_Fig.2b.html",
+      "6.library_complexity_bar_graph_Fig.2d.part1.html",
+      "7.cell_cycle_bar_graph_Fig.2d.part2.html"
+    ), function(file) {
+      tags$div(tags$a(href = file, target = "_blank", file))
+    })
+  })
+  
+  # Generate interactive plot links for Alternative Pipeline Analysis tab
+  output$interactive_plots2 <- renderUI({
+    lapply(c(
+      "interactiveDEGvolcanoplot.html",
+      "interactivedotplot.html",
+      "interactiveheatmap.html",
+      "interactivetsne.html",
+      "interactiveumap.html",
+      "nFeaturevsnCount.html",
+      "percent.mtagainstnCount.html",
+      "volcanoplot.html"
+    ), function(file) {
+      tags$div(tags$a(href = file, target = "_blank", file))
+    })
+  })
   
   # File paths for all the images displayed on the tabs
   output$data_image1 <- renderImage({
