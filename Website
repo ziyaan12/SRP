@@ -32,13 +32,9 @@ ui <- fluidPage(
                  # Images below the text with heading "Results"
                  h3("Results"),
                  fluidRow(
-                   column(width = 6, imageOutput("data_image14")),
-                   column(width = 6, imageOutput("data_image15")),
-                   column(width = 6, imageOutput("data_image16")),
-                   column(width = 6, imageOutput("data_image17")),
-                   column(width = 6, imageOutput("data_image18")),
-                   column(width = 6, imageOutput("data_image19")),
-                   column(width = 6, imageOutput("data_image20"))
+                   column(width = 6, imageOutput("data_image1")),
+                   column(width = 6, imageOutput("data_image2")),
+                   column(width = 6, imageOutput("data_image3"))
                  )
                )
              )
@@ -59,9 +55,6 @@ ui <- fluidPage(
                  # Adding images of the visualization of the analysis
                  h3("Results"),
                  fluidRow(
-                   column(width = 6, imageOutput("data_image1")),
-                   column(width = 6, imageOutput("data_image2")),
-                   column(width = 6, imageOutput("data_image3")),
                    column(width = 6, imageOutput("data_image4")),
                    column(width = 6, imageOutput("data_image5")),
                    column(width = 6, imageOutput("data_image6")),
@@ -69,9 +62,7 @@ ui <- fluidPage(
                    column(width = 6, imageOutput("data_image8")),
                    column(width = 6, imageOutput("data_image9")),
                    column(width = 6, imageOutput("data_image10")),
-                   column(width = 6, imageOutput("data_image11")),
-                   column(width = 6, imageOutput("data_image12")),
-                   column(width = 6, imageOutput("data_image13"))
+                   column(width = 6, imageOutput("data_image11"))
                  )
                )
              )
@@ -138,126 +129,71 @@ Finally, data retrieval from external databases, such as KMplotter, enabled addi
     })
   })
   
-  # File paths for all the images displayed on the tabs
   output$data_image1 <- renderImage({
-    list(src = "image1.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure1.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image2 <- renderImage({
-    list(src = "image2.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure2.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image3 <- renderImage({
-    list(src = "image3.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure3.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image4 <- renderImage({
-    list(src = "image4.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure4.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image5 <- renderImage({
-    list(src = "image5.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure5.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image6 <- renderImage({
-    list(src = "image6.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure6.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image7 <- renderImage({
-    list(src = "image7.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure7.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image8 <- renderImage({
-    list(src = "image8.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure8.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image9 <- renderImage({
-    list(src = "image9.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure9.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image10 <- renderImage({
-    list(src = "image10.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure10.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
   
   output$data_image11 <- renderImage({
-    list(src = "image11.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
-  
-  output$data_image12 <- renderImage({
-    list(src = "image12.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
-  
-  output$data_image13 <- renderImage({
-    list(src = "image13.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
-  
-  output$data_image14 <- renderImage({
-    list(src = "image14.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
-  
-  output$data_image15 <- renderImage({
-    list(src = "image15.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
-  
-  output$data_image16 <- renderImage({
-    list(src = "image16.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
-  
-  output$data_image17 <- renderImage({
-    list(src = "image17.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
-  
-  output$data_image18 <- renderImage({
-    list(src = "image18.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
-  
-  output$data_image19 <- renderImage({
-    list(src = "image19.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
-  
-  output$data_image20 <- renderImage({
-    list(src = "image20.png",
-         width = 600,
-         height = 400)
-  }, deleteFile = F)
+    list(src = "Figure11.png",
+         width = 405,
+         height = 405)
+  }, deleteFile = FALSE)
 }
 
 # Run the application
