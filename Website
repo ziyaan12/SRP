@@ -129,69 +129,70 @@ Finally, data retrieval from external databases, such as KMplotter, enabled addi
     })
   })
   
+  # File path for the figures
   output$data_image1 <- renderImage({
     list(src = "Figure1.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image2 <- renderImage({
     list(src = "Figure2.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image3 <- renderImage({
     list(src = "Figure3.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image4 <- renderImage({
     list(src = "Figure4.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image5 <- renderImage({
     list(src = "Figure5.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image6 <- renderImage({
     list(src = "Figure6.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image7 <- renderImage({
     list(src = "Figure7.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image8 <- renderImage({
     list(src = "Figure8.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image9 <- renderImage({
     list(src = "Figure9.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image10 <- renderImage({
     list(src = "Figure10.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
   
   output$data_image11 <- renderImage({
     list(src = "Figure11.png",
-         width = 405,
+         width = 600,
          height = 405)
   }, deleteFile = FALSE)
 }
